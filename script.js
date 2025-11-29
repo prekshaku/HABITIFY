@@ -3,20 +3,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Data & mappings ---------- */
   const HABITS = [
-    { key:'exercise', title:'30 min Exercise', emoji:'🏃', sdg:'SDG 3' },
-    { key:'sleep', title:'7–8 hrs Sleep', emoji:'😴', sdg:'SDG 3' },
-    { key:'water', title:'Drink 2L Water', emoji:'💧', sdg:'SDG 3' },
-    { key:'walk', title:'Walk / Transport', emoji:'🚶', sdg:'SDG 3' },
-    { key:'meal', title:'Healthy Meal', emoji:'🥗', sdg:'SDG 3' },
-    { key:'meditate', title:'5-min Meditation', emoji:'🧘', sdg:'SDG 3' },
-    { key:'screen', title:'Limit Screen Time', emoji:'📵', sdg:'SDG 3' },
-    { key:'study', title:'Study / Learn 30m', emoji:'📚', sdg:'SDG 3' },
-    { key:'nojunk', title:'Avoid Junk Food', emoji:'🚫', sdg:'SDG 3' },
-    { key:'reusable', title:'Use Reusable Bottle/Bag', emoji:'🔁', sdg:'SDG 12' },
-    { key:'segregate', title:'Segregate Waste', emoji:'🗑️', sdg:'SDG 12' },
-    { key:'savepower', title:'Save Electricity', emoji:'💡', sdg:'SDG 12' },
-    { key:'noPlastic', title:'Avoid Plastic Bag', emoji:'🛍️', sdg:'SDG 12' },
-    { key:'compost', title:'Compost / Reduce Waste', emoji:'🌿', sdg:'SDG 12' }
+    { key:'exercise', title:'30 min Exercise', emoji:'🏃' },
+    { key:'sleep', title:'7–8 hrs Sleep', emoji:'😴' },
+    { key:'water', title:'Drink 2L Water', emoji:'💧' },
+    { key:'walk', title:'Walk / Transport', emoji:'🚶' },
+    { key:'meal', title:'Healthy Meal', emoji:'🥗' },
+    { key:'meditate', title:'5-min Meditation', emoji:'🧘' },
+    { key:'screen', title:'Limit Screen Time', emoji:'📵' },
+    { key:'study', title:'Study / Learn 30m', emoji:'📚' },
+    { key:'nojunk', title:'Avoid Junk Food', emoji:'🚫' },
+    { key:'reusable', title:'Use Reusable Bottle/Bag', emoji:'🔁' },
+    { key:'segregate', title:'Segregate Waste', emoji:'🗑️' },
+    { key:'savepower', title:'Save Electricity', emoji:'💡' },
+    { key:'noPlastic', title:'Avoid Plastic Bag', emoji:'🛍️' },
+    { key:'compost', title:'Compost / Reduce Waste', emoji:'🌿' }
   ];
 
   const SUGGESTIONS = {
@@ -66,9 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const LS_POINTS = 'habit_points';
   const LS_BADGES = 'habit_badges';
   const LS_DAILY = 'habit_daily_challenge';
+  const LS_TODAY = 'habit_today_checks'; // new: stores { 'YYYY-MM-DD': {key:true,...} }
 
   let points = parseInt(localStorage.getItem(LS_POINTS) || '0', 10) || 0;
-  let badges = JSON.parse(localStorage.getItem(LS_BADGES) || '[]');
+  let badges = JSON.parse(localStorage.getItem(LS_BADGES) || '[]') || [];
 
   /* ---------- Moving Quotes ---------- */
   const QUOTES = [
@@ -99,55 +100,64 @@ document.addEventListener('DOMContentLoaded', () => {
     return DAILY[sum % DAILY.length];
   }
 
-  function renderDailyChallenge(){
-    const today = new Date();
-    challengeDate.textContent = today.toDateString();
-    const saved = JSON.parse(localStorage.getItem(LS_DAILY) || '{}');
-    const todayKey = new Date().toISOString().slice(0,10);
-    let challengeText;
-    if(saved.date === todayKey && saved.text){
-      challengeText = saved.text;
-      if(saved.completed) dailyCheck.checked = true;
-    } else {
-      challengeText = getDailyForDate(today);
-      localStorage.setItem(LS_DAILY, JSON.stringify({date:todayKey,text:challengeText,completed:false}));
-      dailyCheck.checked = false;
-    }
-    dailyText.textContent = challengeText;
-    dailyReward.style.display = (dailyCheck.checked ? 'block' : 'none');
+  function getTodayKey(){ return new Date().toISOString().slice(0,10); }
+
+  /* ---------- Persisted today-check helpers ---------- */
+  function loadTodayChecks(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(LS_TODAY) || '{}');
+      return raw;
+    }catch(e){ return {}; }
+  }
+  function saveTodayChecks(obj){
+    localStorage.setItem(LS_TODAY, JSON.stringify(obj));
+  }
+  function setTodayCheck(key, value){
+    const all = loadTodayChecks();
+    const today = getTodayKey();
+    all[today] = all[today] || {};
+    all[today][key] = !!value;
+    saveTodayChecks(all);
+  }
+  function getTodayCheck(key){
+    const all = loadTodayChecks();
+    const today = getTodayKey();
+    return !!(all[today] && all[today][key]);
   }
 
-  dailyCheck.addEventListener('change', ()=>{
-    const stored = JSON.parse(localStorage.getItem(LS_DAILY) || '{}');
-    const todayKey = new Date().toISOString().slice(0,10);
-    stored.date = todayKey; stored.text = stored.text || getDailyForDate(new Date()); stored.completed = !!dailyCheck.checked;
-    localStorage.setItem(LS_DAILY, JSON.stringify(stored));
-    if(dailyCheck.checked){
-      // reward badge for daily challenge
-      if(!badges.includes('Daily Challenger')){
-        badges.push('Daily Challenger'); localStorage.setItem(LS_BADGES, JSON.stringify(badges)); renderBadges();
-        showToast('Badge unlocked: Daily Challenger 🏅');
-      }
-      dailyReward.style.display = 'block';
-    } else {
-      dailyReward.style.display = 'none';
-    }
-  });
-
-  /* ---------- Render habits list ---------- */
+  /* ---------- Render habits list (no SDG) ---------- */
   function renderHabits(){
     habitList.innerHTML = '';
-    HABITS.forEach(h=>{
+    HABITS.forEach((h, idx)=>{
       const div = document.createElement('div');
       div.className = 'habit';
+      div.setAttribute('data-index', idx);
       const id = `cb-${h.key}`;
-      div.innerHTML = `<div class="left"><div class="emoji">${h.emoji}</div>
-        <div><div class="title">${h.title}</div><div class="sdg">${h.sdg}</div></div></div>
-        <div><input type="checkbox" id="${id}"></div>`;
+
+      // use bigCheck class for larger animated checkbox; removed SDG
+      div.innerHTML = `
+        <div class="left">
+          <div class="emoji">${h.emoji}</div>
+          <div class="title">${h.title}</div>
+        </div>
+        <div>
+          <input type="checkbox" class="bigCheck" id="${id}">
+        </div>
+      `;
+
       habitList.appendChild(div);
-      document.getElementById(id).addEventListener('change', ()=>{
-        updateTodayScore();
-      });
+
+      // apply persisted state for today
+      const cb = document.getElementById(id);
+      if(cb){
+        cb.checked = getTodayCheck(h.key);
+        cb.addEventListener('change', ()=>{
+          setTodayCheck(h.key, cb.checked);
+          updateTodayScore();
+          // subtle pulse toast when checked
+          if(cb.checked) showToast(`Nice — ${h.title} done!`);
+        });
+      }
     });
     updateTodayScore();
   }
@@ -175,7 +185,9 @@ document.addEventListener('DOMContentLoaded', () => {
       node.innerHTML = `<div>🎉</div><div><div class="txt">Perfect Day!</div><div class="sub">You completed everything — awesome.</div></div>`;
       suggestionsEl.appendChild(node);
       // perfect badge
-      if(!badges.includes('Perfect Day')){ badges.push('Perfect Day'); localStorage.setItem(LS_BADGES, JSON.stringify(badges)); renderBadges(); showToast('Badge: Perfect Day 🏆'); }
+      if(!badges.includes('Perfect Day')){
+        badges.push('Perfect Day'); localStorage.setItem(LS_BADGES, JSON.stringify(badges)); renderBadges(); showToast('Badge: Perfect Day 🏆');
+      }
     }
 
     // add 2 default tips
@@ -190,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // award points
     const pct = parseInt(todayScoreEl.textContent,10) || 0;
-    const earned = Math.round((pct/100) * (HABITS.length * 10)); // example formula
+    const earned = Math.round((pct/100) * (HABITS.length * 10)); // formula
     points += earned; localStorage.setItem(LS_POINTS, points); pointsEl.textContent = points;
 
     // save daily score to weekly storage
@@ -201,7 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Clear today's checks ---------- */
   clearBtn.addEventListener('click', ()=>{
-    HABITS.forEach(h => { const cb = document.getElementById(`cb-${h.key}`); if(cb) cb.checked = false; });
+    HABITS.forEach(h => {
+      const cb = document.getElementById(`cb-${h.key}`);
+      if(cb) cb.checked = false;
+      setTodayCheck(h.key, false);
+    });
     suggestionsWrap.style.display = 'none';
     updateTodayScore();
   });
@@ -249,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return arr;
   }
   function saveDailyScore(score){
-    const key = new Date().toISOString().slice(0,10);
+    const key = getTodayKey();
     const raw = JSON.parse(localStorage.getItem(LS_SCORES) || '[]');
     const idx = raw.findIndex(r=>r.date===key);
     if(idx>=0) raw[idx]={date:key,score}; else raw.push({date:key,score});
@@ -270,16 +286,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderDailyChallenge(){
     const saved = JSON.parse(localStorage.getItem(LS_DAILY) || '{}');
-    const todayKey = new Date().toISOString().slice(0,10);
+    const todayKey = getTodayKey();
     if(saved.date === todayKey && saved.text){
       dailyText.textContent = saved.text; dailyCheck.checked = !!saved.completed; dailyReward.style.display = saved.completed ? 'block':'none';
+      // also persist daily challenge completion
+      setTodayCheck('daily_challenge', !!saved.completed);
     } else {
       const text = getDailyForDate(new Date());
       localStorage.setItem(LS_DAILY, JSON.stringify({date:todayKey,text,completed:false}));
       dailyText.textContent = text; dailyCheck.checked = false; dailyReward.style.display='none';
+      setTodayCheck('daily_challenge', false);
     }
     challengeDate.textContent = (new Date()).toDateString();
   }
+
+  /* daily challenge checkbox persistence */
+  dailyCheck.addEventListener('change', ()=>{
+    const todayKey = getTodayKey();
+    const stored = JSON.parse(localStorage.getItem(LS_DAILY) || '{}');
+    stored.date = todayKey; stored.text = stored.text || getDailyForDate(new Date()); stored.completed = !!dailyCheck.checked;
+    localStorage.setItem(LS_DAILY, JSON.stringify(stored));
+    setTodayCheck('daily_challenge', !!dailyCheck.checked);
+
+    if(dailyCheck.checked){
+      if(!badges.includes('Daily Challenger')){
+        badges.push('Daily Challenger'); localStorage.setItem(LS_BADGES, JSON.stringify(badges)); renderBadges(); showToast('Badge unlocked: Daily Challenger 🏅');
+      }
+      dailyReward.style.display = 'block';
+    } else {
+      dailyReward.style.display = 'none';
+    }
+  });
 
   /* ---------- Dark mode toggle ---------- */
   const darkToggle = document.getElementById('darkToggle');
@@ -302,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // initial small tasks: prepare canvas to avoid blank canvas
-  // create a dummy chart now, chart will be replaced when loadChart called
   (function prepareCanvas(){
     const c = document.getElementById('weeklyChart');
     if(c) c.width = c.clientWidth;
