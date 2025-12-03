@@ -1,4 +1,13 @@
-// Full-feature HabitEye (Option A) - single-file app logic
+// ---------- API + Auth guard ----------
+const API_BASE = 'http://localhost:4000';
+const AUTH_TOKEN = localStorage.getItem('auth_token');
+
+// if not logged in, send user to login page
+if (!AUTH_TOKEN) {
+  window.location.href = 'login.html';
+}
+
+// Full-feature Habitify logic
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Data & mappings ---------- */
@@ -62,14 +71,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const dailyReward = document.getElementById('dailyReward');
   const challengeDate = document.getElementById('challengeDate');
 
+  const logoutBtn = document.getElementById('logoutBtn'); // must exist in index.html
+  const titleEl = document.querySelector('.title');
+
   const LS_SCORES = 'habit_weekly_scores';
   const LS_POINTS = 'habit_points';
   const LS_BADGES = 'habit_badges';
   const LS_DAILY = 'habit_daily_challenge';
-  const LS_TODAY = 'habit_today_checks'; // new: stores { 'YYYY-MM-DD': {key:true,...} }
+  const LS_TODAY = 'habit_today_checks';
 
   let points = parseInt(localStorage.getItem(LS_POINTS) || '0', 10) || 0;
   let badges = JSON.parse(localStorage.getItem(LS_BADGES) || '[]') || [];
+
+  /* ---------- Personal greeting ---------- */
+  const userName = localStorage.getItem('user_name') || 'friend';
+  if (titleEl) {
+    // e.g. "Welcome, Sanjana"
+    titleEl.innerHTML = `Welcome, <span>${userName}</span>`;
+  }
+
+  /* ---------- Logout button ---------- */
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_name');
+      window.location.href = 'login.html';
+    });
+  }
 
   /* ---------- Moving Quotes ---------- */
   const QUOTES = [
@@ -83,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function rotateQuote(){ movingQuote.textContent = QUOTES[qidx]; qidx=(qidx+1)%QUOTES.length; }
   rotateQuote(); setInterval(rotateQuote, 4200);
 
-  /* ---------- Daily Challenge (changes by date) ---------- */
+  /* ---------- Daily Challenge ---------- */
   const DAILY = [
     'Walk 20 minutes 🚶',
     'No sugary drinks today 🚫🥤',
@@ -125,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return !!(all[today] && all[today][key]);
   }
 
-  /* ---------- Render habits list (no SDG) ---------- */
+  /* ---------- Render habits list ---------- */
   function renderHabits(){
     habitList.innerHTML = '';
     HABITS.forEach((h, idx)=>{
@@ -134,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
       div.setAttribute('data-index', idx);
       const id = `cb-${h.key}`;
 
-      // use bigCheck class for larger animated checkbox; removed SDG
       div.innerHTML = `
         <div class="left">
           <div class="emoji">${h.emoji}</div>
@@ -144,17 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <input type="checkbox" class="bigCheck" id="${id}">
         </div>
       `;
-
       habitList.appendChild(div);
 
-      // apply persisted state for today
       const cb = document.getElementById(id);
       if(cb){
         cb.checked = getTodayCheck(h.key);
         cb.addEventListener('change', ()=>{
           setTodayCheck(h.key, cb.checked);
           updateTodayScore();
-          // subtle pulse toast when checked
           if(cb.checked) showToast(`Nice — ${h.title} done!`);
         });
       }
@@ -168,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     todayScoreEl.textContent = pct + '%';
   }
 
-  /* ---------- Finish Day: show suggestions for MISSED + default tips; award points ---------- */
+  /* ---------- Finish Day ---------- */
   finishBtn.addEventListener('click', ()=>{
     const missed = HABITS.filter(h => !(document.getElementById(`cb-${h.key}`)?.checked));
     suggestionsEl.innerHTML = '';
@@ -184,13 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const node = document.createElement('div'); node.className='suggestion';
       node.innerHTML = `<div>🎉</div><div><div class="txt">Perfect Day!</div><div class="sub">You completed everything — awesome.</div></div>`;
       suggestionsEl.appendChild(node);
-      // perfect badge
       if(!badges.includes('Perfect Day')){
         badges.push('Perfect Day'); localStorage.setItem(LS_BADGES, JSON.stringify(badges)); renderBadges(); showToast('Badge: Perfect Day 🏆');
       }
     }
 
-    // add 2 default tips
     const defaults = DEFAULT_TIPS.slice().sort(()=>0.5 - Math.random()).slice(0,2);
     defaults.forEach(t=>{
       const node = document.createElement('div'); node.className='suggestion';
@@ -200,14 +222,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     suggestionsWrap.style.display = 'block';
 
-    // award points
     const pct = parseInt(todayScoreEl.textContent,10) || 0;
-    const earned = Math.round((pct/100) * (HABITS.length * 10)); // formula
+    const earned = Math.round((pct/100) * (HABITS.length * 10));
     points += earned; localStorage.setItem(LS_POINTS, points); pointsEl.textContent = points;
 
-    // save daily score to weekly storage
     saveDailyScore(pct);
-
     showToast(`Finished — +${earned} pts`);
   });
 
@@ -222,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTodayScore();
   });
 
-  /* ---------- Previous button (back to welcome) ---------- */
+  /* ---------- Previous button ---------- */
   prevBtn.addEventListener('click', ()=>{
     dashboard.style.display = 'none'; welcome.style.display = 'flex';
   });
@@ -280,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
     badges = JSON.parse(localStorage.getItem(LS_BADGES) || '[]') || [];
     pointsEl.textContent = points;
     renderBadges();
-    // daily challenge render
     renderDailyChallenge();
   }
 
@@ -289,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayKey = getTodayKey();
     if(saved.date === todayKey && saved.text){
       dailyText.textContent = saved.text; dailyCheck.checked = !!saved.completed; dailyReward.style.display = saved.completed ? 'block':'none';
-      // also persist daily challenge completion
       setTodayCheck('daily_challenge', !!saved.completed);
     } else {
       const text = getDailyForDate(new Date());
@@ -300,7 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
     challengeDate.textContent = (new Date()).toDateString();
   }
 
-  /* daily challenge checkbox persistence */
   dailyCheck.addEventListener('change', ()=>{
     const todayKey = getTodayKey();
     const stored = JSON.parse(localStorage.getItem(LS_DAILY) || '{}');
@@ -329,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDark = document.body.classList.toggle('dark');
     localStorage.setItem(DARK_KEY, isDark ? '1':'0');
   });
-  // apply saved
   if(localStorage.getItem(DARK_KEY) === '1') applyDark(true);
 
   /* ---------- Start button ---------- */
@@ -338,11 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHabits(); loadState(); loadChart();
   });
 
-  // initial small tasks: prepare canvas to avoid blank canvas
   (function prepareCanvas(){
     const c = document.getElementById('weeklyChart');
     if(c) c.width = c.clientWidth;
   })();
-
-  // safe initial render of welcome moving quote already started
 }); // DOMContentLoaded end

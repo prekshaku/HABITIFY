@@ -16,6 +16,38 @@ body.dark{
   background:linear-gradient(180deg,#071018,#0b1220); color:#e6f7ef;
 }
 
+/* dark mode adjustments */
+body.dark .glass-card{
+  background:linear-gradient(180deg, rgba(15,23,32,0.96), rgba(15,23,32,0.9));
+  box-shadow:0 18px 40px rgba(0,0,0,0.6);
+}
+
+body.dark .title{
+  color:#e9fff6;
+}
+
+body.dark .title span{
+  color:#34d399;
+}
+
+body.dark .lead,
+body.dark .quote{
+  color:#cbd5f5;
+}
+
+body.dark .muted{
+  color:#a5b4c8;
+}
+
+body.dark .card{
+  background:#0b1724;
+  color:#e6f7ef;
+}
+
+body.dark #chartWrap{
+  background:#020617;
+}
+
 /* Dark toggle */
 .dark-toggle{position:fixed;right:18px;top:14px;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;z-index:40;background:#ffffffcc}
 body.dark .dark-toggle{background:#ffffff22;color:#fff}
@@ -48,7 +80,40 @@ body.dark .dark-toggle{background:#ffffff22;color:#fff}
 .btn.primary{background:linear-gradient(90deg,var(--accent),#00a479);color:#fff;box-shadow:0 8px 18px rgba(0,160,120,0.12)}
 .btn.success{background:linear-gradient(90deg,#00c853,#00a65c);color:#fff}
 .btn.ghost{background:#fff;border:1px solid rgba(0,0,0,0.06)}
-.btn.outline{background:transparent;border:1px solid rgba(0,0,0,0.12)}
+.btn.outline{
+  background:transparent;
+  border:1px solid rgba(0,0,0,0.35);
+  color:#063b34;
+  padding:8px 14px;
+}
+
+.btn.outline:hover{
+  background:rgba(0,0,0,0.04);
+}
+
+/* outline buttons in dark mode (e.g. Logout) */
+body.dark .btn.outline{
+  border-color:#38bdf8;
+  color:#e0f2fe;
+  background:rgba(15,23,42,0.8);
+}
+
+body.dark .btn.outline:hover{
+  background:rgba(56,189,248,0.18);
+}
+
+/* habit cards in dark mode */
+body.dark .habit{
+  background:#111827;         /* darker card */
+}
+
+body.dark .habit .title{
+  color:#e5f9f2;              /* brighter text */
+}
+
+body.dark .habit .emoji{
+  filter:none;                /* keep emoji bright */
+}
 
 /* header */
 .header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px}
@@ -116,7 +181,6 @@ body.dark .dark-toggle{background:#ffffff22;color:#fff}
   transform: rotate(-45deg) scale(1);
 }
 
-
 /* controls */
 .controls{display:flex;gap:10px;margin-top:14px}
 
@@ -152,4 +216,42 @@ body.dark .dark-toggle{background:#ffffff22;color:#fff}
   .right-col{width:100%}
   .habit .title{font-size:1.25rem}
   .bigCheck{width:30px;height:30px}
+}
+
+/* auth forms (login + signup) */
+.auth-form{
+  margin-top:14px;
+  text-align:left;
+}
+
+.auth-field{
+  margin-bottom:10px;
+}
+
+.auth-field label{
+  display:block;
+  font-size:0.9rem;
+  margin-bottom:4px;
+  color:var(--muted);
+}
+
+.auth-field input{
+  width:100%;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,0.12);
+  font-family:inherit;
+  font-size:0.95rem;
+  outline:none;
+  background:rgba(255,255,255,0.9);
+}
+
+.auth-field input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(0,180,120,0.35);
+}
+
+/* make auth glass card a bit narrower on large screens */
+.auth-card{
+  max-width:420px;
 }
