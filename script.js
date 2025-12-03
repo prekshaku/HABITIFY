@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pointsEl = document.getElementById('points');
   const badgesEl = document.getElementById('badges');
   const toast = document.getElementById('toast');
+  const plannerBtn = document.getElementById('plannerBtn');
 
   const dailyText = document.getElementById('dailyText');
   const dailyCheck = document.getElementById('dailyCheck');
@@ -96,6 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_name');
       window.location.href = 'login.html';
+    });
+  }
+
+    /* ---------- Planner button ---------- */
+  if (plannerBtn) {
+    plannerBtn.addEventListener('click', () => {
+      window.location.href = 'planner.html';
     });
   }
 

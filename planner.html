@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Habitify — Day Planner</title>
+
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* --- Planner specific styles --- */
+
+    .planner-shell{
+      max-width: 960px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .planner-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:18px;
+    }
+
+    .planner-header h1{
+      margin:0;
+      font-size:26px;
+    }
+
+    .planner-header small{
+      display:block;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    .day-picker{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+
+    .day-pill{
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.12);
+      background:#fff;
+      cursor:pointer;
+      font-size:0.9rem;
+    }
+
+    .day-pill.active{
+      background:linear-gradient(90deg,var(--accent),#00a479);
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 8px 18px rgba(0,160,120,0.12);
+    }
+
+    .todo-input-row{
+      display:flex;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .todo-input-row input{
+      flex:1;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(0,0,0,0.12);
+      font-family:inherit;
+    }
+
+    .todo-list{
+      list-style:none;
+      margin:0;
+      padding:0;
+    }
+
+    .todo-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:var(--card);
+      margin-bottom:8px;
+    }
+
+    .todo-main{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex:1;
+    }
+
+    .todo-checkbox{
+      width:20px;
+      height:20px;
+      cursor:pointer;
+    }
+
+    .todo-text{
+      font-size:0.98rem;
+    }
+
+    .todo-text.done{
+      text-decoration:line-through;
+      opacity:0.55;
+    }
+
+    .todo-remove{
+      border:none;
+      background:transparent;
+      color:#be123c;
+      cursor:pointer;
+      font-size:0.9rem;
+    }
+
+    /* dark mode tweaks for planner */
+    body.dark .planner-shell{
+      color:#e6f7ef;
+    }
+
+    body.dark .day-pill{
+      background:#020617;
+      border-color:#1f2937;
+      color:#e5e7eb;
+    }
+
+    body.dark .day-pill.active{
+      background:linear-gradient(90deg,#22c55e,#16a34a);
+      box-shadow:0 8px 18px rgba(22,163,74,0.4);
+    }
+
+    body.dark .todo-item{
+      background:#0b1724;
+    }
+
+    body.dark .todo-input-row input{
+      background:#020617;
+      border-color:#1f2937;
+      color:#e5e7eb;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Dark toggle reused from main site -->
+  <button id="darkToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
+
+  <div class="planner-shell">
+    <div class="planner-header">
+      <div>
+        <h1>Day Planner</h1>
+        <small>Plan your day and tick tasks as you complete them.</small>
+      </div>
+      <a href="index.html" class="btn ghost">← Back to Dashboard</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Choose a day</div>
+      <div class="day-picker" id="dayPicker"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">To‑Do List</div>
+
+      <div class="todo-input-row">
+        <input type="text" id="todoInput" placeholder="Add a task (e.g., 9:00 – Morning walk)" />
+        <button class="btn primary" id="addTodoBtn">Add</button>
+      </div>
+
+      <ul id="todoList" class="todo-list"></ul>
+    </div>
+  </div>
+
+  <script>
+    // --- Dark mode (reuse same key as main app) ---
+    const DARK_KEY = 'habit_dark';
+    const darkToggle = document.getElementById('darkToggle');
+    function applyDark(on){
+      if(on) document.body.classList.add('dark');
+      else document.body.classList.remove('dark');
+      localStorage.setItem(DARK_KEY, on ? '1' : '0');
+    }
+    if(localStorage.getItem(DARK_KEY) === '1') applyDark(true);
+    darkToggle.addEventListener('click', ()=>{
+      const isDark = document.body.classList.toggle('dark');
+      localStorage.setItem(DARK_KEY, isDark ? '1' : '0');
+    });
+
+    // --- Planner logic ---
+    const dayPicker = document.getElementById('dayPicker');
+    const todoInput = document.getElementById('todoInput');
+    const addTodoBtn = document.getElementById('addTodoBtn');
+    const todoList = document.getElementById('todoList');
+
+    const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const LS_KEY = 'habit_planner_tasks';   // { Mon:[{text,done}], ... }
+
+    let currentDay = getTodayShort();
+    let plannerState = loadState();
+
+    function getTodayShort(){
+      const d = new Date();
+      return DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1]; // map JS Sun=0.. to Mon first
+    }
+
+    function loadState(){
+      try{
+        return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+      }catch(e){
+        return {};
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem(LS_KEY, JSON.stringify(plannerState));
+    }
+
+    function renderDays(){
+      dayPicker.innerHTML = '';
+      DAYS.forEach(day=>{
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = day;
+        btn.className = 'day-pill' + (day === currentDay ? ' active' : '');
+        btn.addEventListener('click', ()=>{
+          currentDay = day;
+          renderDays();
+          renderTodos();
+        });
+        dayPicker.appendChild(btn);
+      });
+    }
+
+    function renderTodos(){
+      todoList.innerHTML = '';
+      const items = plannerState[currentDay] || [];
+      items.forEach((item, index)=>{
+        const li = document.createElement('li');
+        li.className = 'todo-item';
+
+        const main = document.createElement('div');
+        main.className = 'todo-main';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'todo-checkbox';
+        cb.checked = !!item.done;
+
+        const span = document.createElement('span');
+        span.className = 'todo-text' + (item.done ? ' done' : '');
+        span.textContent = item.text;
+
+        cb.addEventListener('change', ()=>{
+          plannerState[currentDay][index].done = cb.checked;
+          if(cb.checked) span.classList.add('done');
+          else span.classList.remove('done');
+          saveState();
+        });
+
+        main.appendChild(cb);
+        main.appendChild(span);
+
+        const del = document.createElement('button');
+        del.className = 'todo-remove';
+        del.textContent = 'Remove';
+        del.addEventListener('click', ()=>{
+          plannerState[currentDay].splice(index,1);
+          saveState();
+          renderTodos();
+        });
+
+        li.appendChild(main);
+        li.appendChild(del);
+        todoList.appendChild(li);
+      });
+    }
+
+    function addTask(){
+      const text = todoInput.value.trim();
+      if(!text) return;
+      if(!plannerState[currentDay]) plannerState[currentDay] = [];
+      plannerState[currentDay].push({ text, done:false });
+      saveState();
+      todoInput.value = '';
+      renderTodos();
+    }
+
+    addTodoBtn.addEventListener('click', addTask);
+    todoInput.addEventListener('keydown', e=>{
+      if(e.key === 'Enter') addTask();
+    });
+
+    // initial render
+    renderDays();
+    renderTodos();
+  </script>
+</body>
+</html>
